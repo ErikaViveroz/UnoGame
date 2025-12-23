@@ -1,7 +1,15 @@
 package com.game.uno;
 
+import com.game.uno.dao.PlayerRepository;
 import com.game.uno.model.Player;
 import com.game.uno.model.Turn;
+import com.game.uno.service.PlayerService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringApplication;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.stereotype.Component;
 
 import java.awt.Color;
 import java.awt.Cursor;
@@ -9,6 +17,7 @@ import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.Image;
 import java.awt.Toolkit;
+import java.io.IOException;
 import java.util.Calendar;
 import java.util.List;
 import java.awt.event.MouseEvent;
@@ -17,19 +26,16 @@ import java.io.File;
 import java.util.Random;
 import java.util.stream.IntStream;
 
-import javax.swing.BorderFactory;
-import javax.swing.Icon;
-import javax.swing.ImageIcon;
-import javax.swing.JButton;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
+import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
 /**
  *
  * @author Erika Viveroz
  */
-public class Uno extends javax.swing.JFrame implements MouseListener{
+
+@Component
+public class Uno extends JFrame implements MouseListener{
 	
 	/*Inicialización de Componentes*/
 	private JButton jButtonDrawCard;
@@ -59,14 +65,20 @@ public class Uno extends javax.swing.JFrame implements MouseListener{
     String numbersUno[] = {"1","2","3","4","5","6","7","8","9"};
     String fullDeck[] = new String[36];
     String playerName1, playerName2;
-    String route = System.getProperty("user.dir") + File.separator + "cartas" + File.separator;
+    Resource resource = new ClassPathResource("static/Cards");
+    File folder = resource.getFile();
+    String route = folder.getAbsolutePath() + File.separator;
+
     Icon img, imgL;
     ImageIcon image, currentCard;  
     private Turn turn;
     Player playerA, playerB;
+    @Autowired
+    private final PlayerService playerService;
     
     
-    public Uno() {
+    public Uno(PlayerService playerService) throws IOException {
+        this.playerService = playerService;
         initComponents();
         viewList();
         
@@ -129,7 +141,17 @@ public class Uno extends javax.swing.JFrame implements MouseListener{
         }
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new Uno().setVisible(true);
+                try {
+                    ConfigurableApplicationContext context =
+                            SpringApplication.run(UnoApplication.class, args);
+
+                    PlayerService service = context.getBean(PlayerService.class);
+                    Uno game = new Uno(service);
+                    game.setVisible(true);
+
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
             }
         });
     }
@@ -359,6 +381,7 @@ public class Uno extends javax.swing.JFrame implements MouseListener{
         }
         
         jButtonDrawCard.setEnabled(true);
+        jButtonPassTurn.setEnabled(true);
     }
     
     public void generateRandoms(){ 
@@ -478,7 +501,9 @@ public class Uno extends javax.swing.JFrame implements MouseListener{
 
             for (JButton b : playerButtonsA) b.setEnabled(false);
             for (JButton b : playerButtonsB) b.setEnabled(false);
-            
+
+            jButtonDrawCard.setEnabled(false);
+            jButtonPassTurn.setEnabled(false);
             jLabelPlayerScoreA.setText("Puntuación: " + playerA.getScore());
             jLabelPlayerScoreB.setText("Puntuación: " + playerB.getScore());
         }
@@ -515,8 +540,8 @@ public class Uno extends javax.swing.JFrame implements MouseListener{
                     currentCard(playerButtons[i].getName());
                     playerButtons[i].setName(null);
                     turn.shiftChange();
-                    jLabelPlayer.setText("Va " + turn.getCurrentPlayer().getName());
                     winningPlayer(playerA.getName(), playerButtons);
+                    jLabelPlayer.setText("Va " + turn.getCurrentPlayer().getName());
                 } else {
                 	message("⚠️ Movimiento inválido. No coincide el color ni el número.");
                 }
@@ -696,7 +721,6 @@ public class Uno extends javax.swing.JFrame implements MouseListener{
 
     void saveScore() {
         try {
-            ConexionPostgreSQL conexion = new ConexionPostgreSQL();
 
             Calendar date = Calendar.getInstance();
             String d = String.format("%02d/%02d/%04d",
@@ -707,7 +731,7 @@ public class Uno extends javax.swing.JFrame implements MouseListener{
             if (playerA.getScore() != playerB.getScore()) {
                 Player win = (playerA.getScore() > playerB.getScore()) ? playerA : playerB;
 
-                conexion.savePlayer(win.getName(), win.getScore(), d);
+                playerService.savePlayer(win.getName(), win.getScore(), d);
                 message("🏆 " + win.getName() + " ha sido guardado con una puntuación de " + win.getScore());
             } else {
                 message("⚠️ Empate, no se guardará ningún puntaje.");
@@ -720,8 +744,7 @@ public class Uno extends javax.swing.JFrame implements MouseListener{
     
     void viewList() {
         try {
-            ConexionPostgreSQL conexion = new ConexionPostgreSQL();
-            List<Player> topPlayers = conexion.viewPlayers();
+            List<Player> topPlayers = playerService.getTopPlayers();
 
             DefaultTableModel model = new DefaultTableModel();
             model.setColumnIdentifiers(new String[] {"Id player", "Name", "Score", "Date"});

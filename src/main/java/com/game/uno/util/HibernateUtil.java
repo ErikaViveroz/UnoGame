@@ -1,4 +1,5 @@
-package com.game.uno.model;
+package com.game.uno.util;
+import com.game.uno.model.Player;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 
@@ -7,7 +8,10 @@ public class HibernateUtil {
 
     static {
         try {
-            sessionFactory = new Configuration().configure().buildSessionFactory();
+            sessionFactory = new Configuration()
+                    .configure()
+                    .addAnnotatedClass(Player.class)
+                    .buildSessionFactory();
         } catch (Throwable ex) {
             throw new ExceptionInInitializerError(ex);
         }

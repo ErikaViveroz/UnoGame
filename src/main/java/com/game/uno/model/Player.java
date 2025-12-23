@@ -11,6 +11,7 @@ public class Player {
     @Column(name = "id_player")
     private int id;
 
+    @Column(nullable = false)
     private String name;
     private String date;
     private int score;
