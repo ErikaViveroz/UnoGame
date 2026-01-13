@@ -24,7 +24,7 @@ public class UnoApplication {
             try {
                 Uno game = context.getBean(Uno.class);
 
-                game.initUI(); // 👈 Swing aquí
+                game.initUI();
 
                 String player1 = game.validateName("Jugador 1");
                 String player2 = game.validateName("Jugador 2");
