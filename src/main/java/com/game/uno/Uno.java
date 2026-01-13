@@ -5,8 +5,7 @@ import com.game.uno.model.Player;
 import com.game.uno.model.Turn;
 import com.game.uno.service.PlayerService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.SpringApplication;
-import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -35,6 +34,7 @@ import javax.swing.table.DefaultTableModel;
  */
 
 @Component
+@Lazy
 public class Uno extends JFrame implements MouseListener{
 	
 	/*Inicialización de Componentes*/
@@ -64,7 +64,6 @@ public class Uno extends JFrame implements MouseListener{
     String colorsUno[] = {"am", "az","ve","ro"};
     String numbersUno[] = {"1","2","3","4","5","6","7","8","9"};
     String fullDeck[] = new String[36];
-    String playerName1, playerName2;
     Resource resource = new ClassPathResource("static/Cards");
     File folder = resource.getFile();
     String route = folder.getAbsolutePath() + File.separator;
@@ -75,10 +74,12 @@ public class Uno extends JFrame implements MouseListener{
     Player playerA, playerB;
     @Autowired
     private final PlayerService playerService;
-    
-    
+
     public Uno(PlayerService playerService) throws IOException {
         this.playerService = playerService;
+    }
+
+    public void initUI() throws IOException {
         initComponents();
         viewList();
         
@@ -89,18 +90,7 @@ public class Uno extends JFrame implements MouseListener{
         setSize(screenWidth, screenHeight); 
         add(jPanelPlayerB);
         add(jPanelPlayerA);
-        playerName1 = validateName("Jugador 1");
-        playerName2 = validateName("Jugador 2");
-        playerA = new Player();
-        playerA.setName(playerName1);
-        playerA.setScore(0); 
 
-        playerB = new Player();
-        playerB.setName(playerName2);
-        playerB.setScore(0);
-        turn = new Turn(playerA, playerB);
-
-        
         /*Creación Grid y dimensiones*/
         jPanelPlayerA.setLayout(new GridLayout(1,playerCardsA));
         jPanelPlayerA.setSize(new Dimension((76*playerCardsA),119));
@@ -117,43 +107,6 @@ public class Uno extends JFrame implements MouseListener{
             playerButtonsB[i].addMouseListener(this);
             jPanelPlayerB.add(playerButtonsB[i]);
         }
-        start();
-    }
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String args[]) {
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(Uno.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(Uno.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(Uno.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(Uno.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                try {
-                    ConfigurableApplicationContext context =
-                            SpringApplication.run(UnoApplication.class, args);
-
-                    PlayerService service = context.getBean(PlayerService.class);
-                    Uno game = new Uno(service);
-                    game.setVisible(true);
-
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
     }
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
@@ -333,7 +286,20 @@ public class Uno extends JFrame implements MouseListener{
         );
         pack();
     }// </editor-fold>//GEN-END:initComponents
-    private String validateName(String title) {
+    public void startGame(String playerName1, String playerName2) {
+        playerA = new Player();
+        playerA.setName(playerName1);
+        playerA.setScore(0);
+
+        playerB = new Player();
+        playerB.setName(playerName2);
+        playerB.setScore(0);
+
+        turn = new Turn(playerA, playerB);
+
+        start();
+    }
+    String validateName(String title) {
         String name;
         do {
             name = JOptionPane.showInputDialog(null, title + ", ingresa tu nombre:", "Nombre de jugador", JOptionPane.QUESTION_MESSAGE);
@@ -360,7 +326,7 @@ public class Uno extends JFrame implements MouseListener{
         imgL=new ImageIcon(currentCard.getImage().getScaledInstance(jLabelCard.getWidth(),jLabelCard.getHeight(),Image.SCALE_DEFAULT));
         jLabelCard.setIcon(imgL);
         
-        jLabelPlayer.setText("Inicia "+playerName1);
+        jLabelPlayer.setText("Inicia " + playerA.getName());
 
         for(int i=0;i<playerButtonsA.length;i++){
             image=new ImageIcon(fullDeck[index[i]]);
