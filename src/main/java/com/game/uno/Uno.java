@@ -1,6 +1,7 @@
 package com.game.uno;
 
 import com.game.uno.dao.PlayerRepository;
+import com.game.uno.model.Card;
 import com.game.uno.model.Player;
 import com.game.uno.model.Turn;
 import com.game.uno.service.PlayerService;
@@ -60,20 +61,20 @@ public class Uno extends JFrame implements MouseListener{
     int playerScore1 = 0, playerScore2 = 0;
     JButton playerButtonsA []=new JButton[playerCardsA];
     JButton playerButtonsB []=new JButton[playerCardsB];
-    String remainingDeck[]=new String [remainingCards];
     String colorsUno[] = {"am", "az","ve","ro"};
     String numbersUno[] = {"1","2","3","4","5","6","7","8","9"};
-    String fullDeck[] = new String[36];
     Resource resource = new ClassPathResource("static/Cards");
     File folder = resource.getFile();
     String route = folder.getAbsolutePath() + File.separator;
 
-    Icon img, imgL;
-    ImageIcon image, currentCard;  
     private Turn turn;
     Player playerA, playerB;
     @Autowired
     private final PlayerService playerService;
+    Card fullDeck[];
+    Card remainingDeck[];
+    Card currentCard;
+
 
     public Uno(PlayerService playerService) throws IOException {
         this.playerService = playerService;
@@ -299,6 +300,7 @@ public class Uno extends JFrame implements MouseListener{
 
         start();
     }
+
     String validateName(String title) {
         String name;
         do {
@@ -318,32 +320,47 @@ public class Uno extends JFrame implements MouseListener{
     	 * se asignan cartas al mazo restante, la carta inicial y las cartas de los jugadores */
     	
         int k=7;
-        int CLabel = playerCardsA + playerCardsB + 1;
+        int totalUsed = playerCardsA + playerCardsB + 1;
+        fullDeck = new Card[colorsUno.length * numbersUno.length];
+        remainingDeck = new Card[fullDeck.length - totalUsed];
         generateRandoms();
         manageCards();
-        currentCard=new ImageIcon(fullDeck[index[indexInitialLetter]]);
-        jLabelCard.setName(fullDeck[index[indexInitialLetter]]);
-        imgL=new ImageIcon(currentCard.getImage().getScaledInstance(jLabelCard.getWidth(),jLabelCard.getHeight(),Image.SCALE_DEFAULT));
-        jLabelCard.setIcon(imgL);
+        currentCard = fullDeck[index[indexInitialLetter]];
+        jLabelCard.setName(currentCard.getImagePath());
+        jLabelCard.setIcon(
+                currentCard.getScaledIcon(
+                        jLabelCard.getWidth(),
+                        jLabelCard.getHeight()
+                )
+        );
         
         jLabelPlayer.setText("Inicia " + playerA.getName());
 
-        for(int i=0;i<playerButtonsA.length;i++){
-            image=new ImageIcon(fullDeck[index[i]]);
-            playerButtonsA[i].setName(fullDeck[index[i]]);
-            img=new ImageIcon(image.getImage().getScaledInstance(playerButtonsA[i].getWidth(),playerButtonsA[i].getHeight(),Image.SCALE_DEFAULT));
-            playerButtonsA[i].setIcon(img);
-            
-            image=new ImageIcon(fullDeck[index[k]]);
-            playerButtonsB[i].setName(fullDeck[index[k]]);
-            img=new ImageIcon(image.getImage().getScaledInstance(playerButtonsB[i].getWidth(),playerButtonsB[i].getHeight(),Image.SCALE_DEFAULT));
-            playerButtonsB[i].setIcon(img);
+        for (int i = 0; i < playerButtonsA.length; i++) {
+
+            Card cardA = fullDeck[index[i]];
+            playerButtonsA[i].putClientProperty("card", cardA);
+            playerButtonsA[i].setIcon(
+                    cardA.getScaledIcon(
+                            playerButtonsA[i].getWidth(),
+                            playerButtonsA[i].getHeight()
+                    )
+            );
+
+            Card cardB = fullDeck[index[k]];
+            playerButtonsB[i].putClientProperty("card", cardB);
+            playerButtonsB[i].setIcon(
+                    cardB.getScaledIcon(
+                            playerButtonsB[i].getWidth(),
+                            playerButtonsB[i].getHeight()
+                    )
+            );
             k++;
         }
-        
+
         for(int i=0;i<remainingDeck.length;i++){
-        	remainingDeck[i]=fullDeck[index[CLabel]];
-            CLabel++;
+        	remainingDeck[i]=fullDeck[index[totalUsed]];
+            totalUsed++;
         }
         
         jButtonDrawCard.setEnabled(true);
@@ -368,22 +385,18 @@ public class Uno extends JFrame implements MouseListener{
                 index[i] = N[i];
             }
     }
-    
-    public void manageCards(){
-    	/*Se asignan las cartas al mazo*/
-    	if (colorsUno == null || numbersUno == null) {
-            throw new IllegalStateException("No se pueden generar cartas: faltan colores o números.");
-        }
-        int x=0;
-            for(int j=0;j<colorsUno.length;j++) {
-                for(int k=0;k<numbersUno.length;k++){
-                	if (x >= fullDeck.length) break;
-                	fullDeck[x]=route+colorsUno[j]+numbersUno[k]+".jpg";// se agregan al final las tarjetas especiales
-                    x++;
-                }
+
+    public void manageCards() {
+        int x = 0;
+        for (String color : colorsUno) {
+            for (String number : numbersUno) {
+                if (x >= fullDeck.length) break;
+                fullDeck[x] = new Card(color, number, route);
+                x++;
             }
+        }
     }
-    
+
     private void jButtonDrawCardActionPerformed(java.awt.event.ActionEvent evt) {
     	/*Lógica para tomar una carta del mazo*/
 
@@ -402,27 +415,33 @@ public class Uno extends JFrame implements MouseListener{
         	drawCard(playerButtonsB, card);
         
     }//GEN-LAST:event_jButton1ActionPerformed
-    
+
     private void drawCard(JButton[] playerButtons, boolean card) {
-    	int i=0;
-        
-    	while(card){
-        	if (i >= playerButtons.length) {
+        int i = 0;
+
+        while (card) {
+            if (i >= playerButtons.length) {
                 message("⚠️ El jugador no puede tener más de 7 cartas.");
-                break; 
+                break;
             }
-        	
-        	if(playerButtons[i].getIcon()==null){
-            	playerButtons[i].setEnabled(true);
-                image=new ImageIcon(remainingDeck[usedCards]);
-                playerButtons[i].setName(remainingDeck[usedCards]);
-                img=new ImageIcon(image.getImage().getScaledInstance(playerButtons[i].getWidth(),playerButtons[i].getHeight(),Image.SCALE_DEFAULT));
-                playerButtons[i].setIcon(img);
+
+            if (playerButtons[i].getIcon() == null) {
+                playerButtons[i].setEnabled(true);
+
+                Card newCard = remainingDeck[usedCards];
+                playerButtons[i].putClientProperty("card", newCard);
+                playerButtons[i].setIcon(
+                        newCard.getScaledIcon(
+                                playerButtons[i].getWidth(),
+                                playerButtons[i].getHeight()
+                        )
+                );
+
                 usedCards++;
-                card=false;
+                card = false;
             }
             i++;
-            }
+        }
     }
 
     private void jButtonPassTurnActionPerformed(java.awt.event.ActionEvent evt) {
@@ -460,7 +479,7 @@ public class Uno extends JFrame implements MouseListener{
         if(c1==playerButtons.length){
             message("Gana el jugador: "+ playerName);
             message("Apague o Reinicie el juego");
-            if (turn.getCurrentPlayer() == playerB) 
+            if (turn.getCurrentPlayer() == playerA)
                 playerA.setScore(playerA.getScore() + 1520);
             else 
                 playerB.setScore(playerB.getScore() + 1520);
@@ -488,176 +507,50 @@ public class Uno extends JFrame implements MouseListener{
 	    	clickedCard(playerButtonsB, e);
 	    }
     }
-    
+
     public void clickedCard(JButton[] playerButtons, MouseEvent e) {
-    	for(int i=0;i<playerButtons.length;i++){
-            if(e.getSource() == playerButtons[i]){	
-            	if (playerButtons[i].getName() == null) {
-            		message("⚠️ Este botón no tiene una carta asignada.");
-                    return; 
+        for (JButton btn : playerButtons) {
+            if (e.getSource() == btn) {
+
+                Card card = (Card) btn.getClientProperty("card");
+                if (card == null) {
+                    message("⚠️ Este botón no tiene una carta asignada.");
+                    return;
                 }
-            	
-            	boolean colorValidate = verifyColorMatch(playerButtons[i]);
-            	boolean numberValidate = verifyNumberMatch(playerButtons[i]);
-            	
-                if(colorValidate || numberValidate){
-                	playerButtons[i].setIcon(null);
-                	playerButtons[i].setEnabled(false);
-                    currentCard(playerButtons[i].getName());
-                    playerButtons[i].setName(null);
+
+                if (verifyMatch(card)) {
+                    btn.setIcon(null);
+                    btn.setEnabled(false);
+                    btn.putClientProperty("card", null);
+
+                    setCurrentCard(card);
+                    winningPlayer(turn.getCurrentPlayer().getName(), playerButtons);
                     turn.shiftChange();
-                    winningPlayer(playerA.getName(), playerButtons);
                     jLabelPlayer.setText("Va " + turn.getCurrentPlayer().getName());
+
                 } else {
-                	message("⚠️ Movimiento inválido. No coincide el color ni el número.");
+                    message("⚠️ Movimiento inválido.");
                 }
             }
         }
     }
-    
-    public void currentCard(String nombre){
-    	/*Cambio en la carta principal*/
-    	currentCard=new ImageIcon(nombre);
-    	jLabelCard.setName(nombre);
-        imgL=new ImageIcon(currentCard.getImage().getScaledInstance(jLabelCard.getWidth(),jLabelCard.getHeight(),Image.SCALE_DEFAULT));
-        jLabelCard.setIcon(imgL);
+
+    public void setCurrentCard(Card card) {
+        currentCard = card;
+        jLabelCard.setName(card.getImagePath());
+        jLabelCard.setIcon(
+                card.getScaledIcon(
+                        jLabelCard.getWidth(),
+                        jLabelCard.getHeight()
+                )
+        );
     }
-    
-    public boolean verifyColorMatch(JButton boton){
-    	/*Valida si se puede agregar la tarjeta por el color*/
-        String busca="";
-        String Label=jLabelCard.getName();
-        String btn=boton.getName();
-        String color="", colors="";
-        for(int i=0;i<numbersUno.length;i++){
-            busca=route+colorsUno[0]+numbersUno[i]+".jpg";
-            if(btn.equalsIgnoreCase(busca)){
-                color="am"; 
-            }
-            busca=route+colorsUno[1]+numbersUno[i]+".jpg";
-            if(btn.equalsIgnoreCase(busca)){
-                color="az"; 
-            }
-            busca=route+colorsUno[2]+numbersUno[i]+".jpg";
-            if(btn.equalsIgnoreCase(busca)){
-                color="ve"; 
-            }
-            busca=route+colorsUno[3]+numbersUno[i]+".jpg";
-            if(btn.equalsIgnoreCase(busca)){
-                color="ro"; 
-            }
-        }
-        for(int i=0;i<numbersUno.length;i++){
-            busca=route+colorsUno[0]+numbersUno[i]+".jpg";
-            if(Label.equalsIgnoreCase(busca)){
-                colors="am"; 
-            }
-            busca=route+colorsUno[1]+numbersUno[i]+".jpg";
-            if(Label.equalsIgnoreCase(busca)){
-                colors="az"; 
-            }
-            busca=route+colorsUno[2]+numbersUno[i]+".jpg";
-            if(Label.equalsIgnoreCase(busca)){
-                colors="ve"; 
-            }
-            busca=route+colorsUno[3]+numbersUno[i]+".jpg";
-            if(Label.equalsIgnoreCase(busca)){
-                colors="ro"; 
-            }
-        }
-        if(color.equalsIgnoreCase(colors)){
-            return true;
-        }
-        
-        return false;
+
+    public boolean verifyMatch(Card playedCard) {
+        return playedCard.getColor().equals(currentCard.getColor()) ||
+                playedCard.getNumber().equals(currentCard.getNumber());
     }
-    
-    public boolean verifyNumberMatch(JButton boton){
-    	/*Valida si se puede agregar la tarjeta por el numero*/
-        String busca="", num="", nume="";
-        String Label=jLabelCard.getName();
-        String btn=boton.getName();
-        for(int i=0;i<colorsUno.length;i++){
-            busca=route+colorsUno[i]+numbersUno[0]+".jpg";  
-            if(btn.equalsIgnoreCase(busca)){
-                num="1";
-            }
-            busca=route+colorsUno[i]+numbersUno[1]+".jpg";  
-            if(btn.equalsIgnoreCase(busca)){
-                num="2";
-            }
-            busca=route+colorsUno[i]+numbersUno[2]+".jpg";  
-            if(btn.equalsIgnoreCase(busca)){
-                num="3";
-            }
-            busca=route+colorsUno[i]+numbersUno[3]+".jpg";  
-            if(btn.equalsIgnoreCase(busca)){
-                num="4";
-            }
-            busca=route+colorsUno[i]+numbersUno[4]+".jpg";  
-            if(btn.equalsIgnoreCase(busca)){
-                num="5";
-            }
-            busca=route+colorsUno[i]+numbersUno[5]+".jpg";  
-            if(btn.equalsIgnoreCase(busca)){
-                num="6";
-            }
-            busca=route+colorsUno[i]+numbersUno[6]+".jpg";  
-            if(btn.equalsIgnoreCase(busca)){
-                num="7";
-            }
-            busca=route+colorsUno[i]+numbersUno[7]+".jpg";  
-            if(btn.equalsIgnoreCase(busca)){
-                num="8";
-            }
-            busca=route+colorsUno[i]+numbersUno[8]+".jpg";  
-            if(btn.equalsIgnoreCase(busca)){
-                num="9";
-            }
-        }
-        for(int i=0;i<colorsUno.length;i++){
-            busca=route+colorsUno[i]+numbersUno[0]+".jpg";  
-            if(Label.equalsIgnoreCase(busca)){
-                nume="1";
-            }
-            busca=route+colorsUno[i]+numbersUno[1]+".jpg";  
-            if(Label.equalsIgnoreCase(busca)){
-                nume="2";
-            }
-            busca=route+colorsUno[i]+numbersUno[2]+".jpg";  
-            if(Label.equalsIgnoreCase(busca)){
-                nume="3";
-            }
-            busca=route+colorsUno[i]+numbersUno[3]+".jpg";  
-            if(Label.equalsIgnoreCase(busca)){
-                nume="4";
-            }
-            busca=route+colorsUno[i]+numbersUno[4]+".jpg";  
-            if(Label.equalsIgnoreCase(busca)){
-                nume="5";
-            }
-            busca=route+colorsUno[i]+numbersUno[5]+".jpg";  
-            if(Label.equalsIgnoreCase(busca)){
-                nume="6";
-            }
-            busca=route+colorsUno[i]+numbersUno[6]+".jpg";  
-            if(Label.equalsIgnoreCase(busca)){
-                nume="7";
-            }
-            busca=route+colorsUno[i]+numbersUno[7]+".jpg";  
-            if(Label.equalsIgnoreCase(busca)){
-                nume="8";
-            }
-            busca=route+colorsUno[i]+numbersUno[8]+".jpg";  
-            if(Label.equalsIgnoreCase(busca)){
-                nume="9";
-            }
-        }
-        if(num.equalsIgnoreCase(nume)){
-            return true;
-        }
-        return false;
-    }
+
     @Override
     public void mousePressed(MouseEvent e) {
     	JButton btn = (JButton) e.getSource();
